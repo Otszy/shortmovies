@@ -1,4 +1,33 @@
-<!DOCTYPE html>
+.edit-btn {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            margin-right: 8px;
+        }
+
+        .delete-btn {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+        }
+
+        .delete-btn:hover {
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .admin-actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -532,13 +561,6 @@
                 <div class="logo-text">Short Movies</div>
             </div>
             <div class="subtitle" id="pageSubtitle">Nonton Video Terbaru</div>
-            
-            <!-- Testing button for Claude artifact only -->
-            <div style="margin-top: 10px;">
-                <button class="admin-toggle" onclick="testAdminAccess()" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; padding: 8px 16px; font-size: 12px; cursor: pointer; transition: all 0.3s ease;">
-                    🔑 Test Admin (untuk testing di Claude)
-                </button>
-            </div>
         </div>
 
         <!-- Access Denied Page -->
@@ -689,11 +711,6 @@
             console.log('Keys match:', providedKey === ADMIN_KEY);
         }
 
-        function testAdminAccess() {
-            // Special function for testing in Claude artifact
-            showAdminPanel();
-        }
-
         function checkAdminAccess() {
             const urlParams = new URLSearchParams(window.location.search);
             const providedKey = urlParams.get(ADMIN_URL_PARAM);
@@ -836,8 +853,13 @@
                         <div class="video-description">${video.description}</div>
                         <div class="video-meta">
                             <span class="video-duration">Upload: ${video.uploadDate}</span>
-                            <button class="watch-btn" onclick="editVideo(${video.id})" style="background: linear-gradient(45deg, #ff6b6b, #feca57);">
+                        </div>
+                        <div class="admin-actions">
+                            <button class="edit-btn" onclick="editVideo(${video.id})">
                                 ✏️ Edit
+                            </button>
+                            <button class="delete-btn" onclick="deleteVideo(${video.id})">
+                                🗑️ Hapus
                             </button>
                         </div>
                     </div>
@@ -851,6 +873,26 @@
             document.getElementById('totalVideos').textContent = videoDatabase.length;
             document.getElementById('totalViews').textContent = '1,247';
             document.getElementById('todayUploads').textContent = '1';
+        }
+
+        function deleteVideo(videoId) {
+            if (!isAdminMode) return;
+            
+            const video = videoDatabase.find(v => v.id === videoId);
+            if (!video) return;
+            
+            const confirmDelete = confirm(`Yakin ingin menghapus video "${video.title}"?\n\nTindakan ini tidak dapat dibatalkan!`);
+            if (confirmDelete) {
+                // Remove video from database
+                videoDatabase = videoDatabase.filter(v => v.id !== videoId);
+                
+                // Reload both admin and public views
+                loadAdminVideos();
+                loadPublicVideos();
+                updateStats();
+                
+                showToast(`Video "${video.title}" berhasil dihapus! 🗑️`, 'success');
+            }
         }
 
         function editVideo(videoId) {
