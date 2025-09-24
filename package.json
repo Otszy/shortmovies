@@ -1,0 +1,13 @@
+{
+  "name": "shortmovies-vercel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"no build step\"",
+    "start": "echo \"Use Vercel to run this project\""
+  },
+  "dependencies": {
+    "@vercel/blob": "^0.25.0"
+  }
+}
