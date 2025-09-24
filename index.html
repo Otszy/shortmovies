@@ -633,66 +633,56 @@
     <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { upload as blobUpload } from 'https://esm.sh/@vercel/blob@0.25.0/client';
+  // ========== SAFE HELPERS ==========
+  const $ = (id) => document.getElementById(id);
+  const tryEl = (id) => $(id) || { style: {}, innerHTML:'', textContent:'', addEventListener(){}, querySelectorAll(){return [];} };
 
-  // ========= CONFIG =========
-  const API_BASE = ''; // same-origin
-  const DATE_TODAY = new Date().toISOString().slice(0,10);
-
-  // ========= DOM REFS =========
-  const elPublicPage = document.getElementById('publicPage');
-  const elAdminPanel = document.getElementById('adminPanel');
-  const elAccessDenied = document.getElementById('accessDenied');
-  const elAdminIndicator = document.getElementById('adminIndicator');
-
-  const elVideoGrid = document.getElementById('videoGrid');
-  const elEmptyState = document.getElementById('emptyState');
-
-  const elAdminVideoGrid = document.getElementById('adminVideoGrid');
-  const elTotalVideos = document.getElementById('totalVideos');
-  const elTotalViews = document.getElementById('totalViews'); // placeholder
-  const elTodayUploads = document.getElementById('todayUploads');
-
-  const elUploadText = document.getElementById('uploadText');
-  const elUploadSubtext = document.getElementById('uploadSubtext');
-  const elSelectedFileName = document.getElementById('selectedFileName');
-  const elVideoFile = document.getElementById('videoFile');
-  const elProgressBar = document.getElementById('progressBar');
-  const elProgressFill = document.getElementById('progressFill');
-
-  const elVideoTitle = document.getElementById('videoTitle');
-  const elVideoDescription = document.getElementById('videoDescription');
-  const elVideoLink = document.getElementById('videoLink');
-
-  // ========= HELPERS =========
-  function showToast(message, type='success') {
-    const toast = document.getElementById('toast');
-    if (!toast) { alert(message); return; }
-    toast.textContent = message;
-    toast.className = `toast ${type}`;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
+  function toast(msg, type='success'){
+    const t = $('toast');
+    if (!t) return alert(msg);
+    t.textContent = msg;
+    t.className = `toast ${type}`;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2500);
   }
-
   async function api(path, opts={}) {
-    const res = await fetch(API_BASE + path, {
+    const res = await fetch(path, {
       credentials: 'include',
       headers: opts.body instanceof FormData ? undefined : {'Content-Type':'application/json'},
       ...opts
     });
     if (!res.ok) {
-      const err = await res.json().catch(()=>({error: res.statusText}));
-      throw new Error(err.error || err.message || 'Request failed');
+      let e='Request failed';
+      try { const j = await res.json(); e = j.error||j.message||e; } catch {}
+      throw new Error(e);
     }
-    const ct = res.headers.get('content-type') || '';
+    const ct = res.headers.get('content-type')||'';
     return ct.includes('application/json') ? res.json() : res.text();
   }
+  const esc = (s='') => s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[c]));
+  const fmt = (b)=>{ if(!b) return '0 B'; const k=1024, s=['B','KB','MB','GB','TB']; const i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(2)+' '+s[i]; };
 
-  function toCard(v) {
+  // ========== STATE ==========
+  const DATE_TODAY = new Date().toISOString().slice(0,10);
+  let blobUpload = null; // will be set by dynamic import
+
+  // Dynamic import @vercel/blob/client (aman bila CSP ketat: kalau gagal, upload dimatikan)
+  (async () => {
+    try {
+      const m = await import('https://esm.sh/@vercel/blob@0.25.0/client');
+      blobUpload = m.upload;
+    } catch (e) {
+      console.warn('Blob client import gagal (CSP/network). Upload dinonaktifkan sementara.', e);
+      toast('Upload sementara nonaktif (CSP). Listing tetap tampil.', 'error');
+    }
+  })();
+
+  // ========== RENDER ==========
+  function card(v){
     return `
       <div class="video-card">
         <div class="thumbnail">${v.thumbnail || '🎬'}</div>
-        <div class="video-title">${escapeHtml(v.title)}</div>
+        <div class="video-title">${esc(v.title)}</div>
         <div class="video-meta">Di-upload: ${new Date(v.created_at).toLocaleDateString()}</div>
         <div class="video-actions">
           <a class="btn btn-primary" href="${v.file_url}" target="_blank" rel="noopener">▶️ Tonton</a>
@@ -701,13 +691,12 @@
       </div>
     `;
   }
-
-  function toAdminRow(v) {
+  function adminRow(v){
     return `
       <div class="video-card">
         <div class="thumbnail">${v.thumbnail || '🎬'}</div>
-        <div class="video-title">${escapeHtml(v.title)}</div>
-        <div class="video-meta">ID: ${v.id} • ${formatBytes(v.file_size || 0)} • ${new Date(v.created_at).toLocaleString()}</div>
+        <div class="video-title">${esc(v.title)}</div>
+        <div class="video-meta">ID: ${v.id} • ${fmt(v.file_size||0)} • ${new Date(v.created_at).toLocaleString()}</div>
         <div class="video-actions">
           <a class="btn btn-primary" href="${v.file_url}" target="_blank" rel="noopener">▶️ Buka</a>
           <button class="btn btn-danger" data-id="${v.id}">🗑 Hapus</button>
@@ -716,199 +705,142 @@
     `;
   }
 
-  function escapeHtml(s='') {
-    return s.replace(/[&<>"']/g, c => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    })[c]);
+  async function loadPublic(){
+    const grid = tryEl('videoGrid');
+    const empty = tryEl('emptyState');
+    let data = [];
+    try { data = await api('/api/videos'); } catch { data = []; }
+    grid.innerHTML = data.length ? data.map(card).join('') : '';
+    if (empty.style) empty.style.display = data.length ? 'none' : 'block';
   }
 
-  function formatBytes(bytes) {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['B','KB','MB','GB','TB'];
-    const i = Math.floor(Math.log(bytes)/Math.log(k));
-    return parseFloat((bytes/Math.pow(k,i)).toFixed(2))+' '+sizes[i];
-  }
-
-  // ========= RENDER =========
-  async function loadPublic() {
-    const data = await api('/api/videos');
-    elVideoGrid.innerHTML = data.length ? data.map(toCard).join('') : '';
-    elEmptyState.style.display = data.length ? 'none' : 'block';
-  }
-
-  async function loadAdmin() {
-    const data = await api('/api/videos');
-    elAdminVideoGrid.innerHTML = data.length ? data.map(toAdminRow).join('') : '';
-    elTotalVideos.textContent = data.length.toString();
-    elTotalViews.textContent = '—';
-    const today = data.filter(v => (v.created_at || '').slice(0,10) === DATE_TODAY);
-    elTodayUploads.textContent = (today.length || 0).toString();
+  async function loadAdmin(){
+    const grid = tryEl('adminVideoGrid');
+    const tv = tryEl('totalVideos'), tvw = tryEl('totalViews'), tu = tryEl('todayUploads');
+    let data = [];
+    try { data = await api('/api/videos'); } catch { data = []; }
+    grid.innerHTML = data.length ? data.map(adminRow).join('') : '';
+    if (tv) tv.textContent = String(data.length||0);
+    if (tvw) tvw.textContent = '—';
+    const today = data.filter(v => (v.created_at||'').slice(0,10) === DATE_TODAY);
+    if (tu) tu.textContent = String(today.length||0);
     // bind delete
-    elAdminVideoGrid.querySelectorAll('button.btn.btn-danger').forEach(btn => {
-      btn.addEventListener('click', async () => {
+    grid.querySelectorAll('button.btn.btn-danger').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
         const id = btn.getAttribute('data-id');
         if (!confirm('Hapus video ini?')) return;
-        try {
-          await api('/api/videos/'+id, { method:'DELETE' });
-          showToast('Video dihapus');
-          await loadAdmin();
-          await loadPublic();
-        } catch (e) {
-          showToast(e.message, 'error');
-        }
+        try { await api('/api/videos/'+id, { method:'DELETE' }); toast('Video dihapus'); await loadAdmin(); await loadPublic(); }
+        catch(e){ toast(e.message,'error'); }
       });
     });
   }
 
-  function showPublicPage() {
-    elPublicPage.style.display = 'block';
-    elAdminPanel.style.display = 'none';
-    elAccessDenied.style.display = 'none';
-    elAdminIndicator.classList.remove('show');
-    loadPublic().catch(err => showToast(err.message, 'error'));
+  function showPublic(){
+    const p = tryEl('publicPage'), a = tryEl('adminPanel'), d = tryEl('accessDenied'), i = tryEl('adminIndicator');
+    if (p.style) p.style.display='block';
+    if (a.style) a.style.display='none';
+    if (d.style) d.style.display='none';
+    if (i.classList) i.classList.remove('show');
+    loadPublic().catch(()=>{});
   }
-
-  async function showAdminPanel() {
-    elPublicPage.style.display = 'none';
-    elAdminPanel.style.display = 'block';
-    elAccessDenied.style.display = 'none';
-    elAdminIndicator.classList.add('show');
-    await Promise.all([loadAdmin(), loadPublic()]).catch(err => showToast(err.message, 'error'));
+  async function showAdmin(){
+    const p = tryEl('publicPage'), a = tryEl('adminPanel'), d = tryEl('accessDenied'), i = tryEl('adminIndicator');
+    if (p.style) p.style.display='none';
+    if (a.style) a.style.display='block';
+    if (d.style) d.style.display='none';
+    if (i.classList) i.classList.add('show');
+    await Promise.all([loadAdmin(), loadPublic()]).catch(()=>{});
   }
-
-  function showAccessDenied() {
-    elPublicPage.style.display = 'none';
-    elAdminPanel.style.display = 'none';
-    elAccessDenied.style.display = 'block';
-    elAdminIndicator.classList.remove('show');
-    document.getElementById('pageSubtitle').textContent = 'Access Denied';
+  function denied(){
+    const p = tryEl('publicPage'), a = tryEl('adminPanel'), d = tryEl('accessDenied'), i = tryEl('adminIndicator'), st = tryEl('pageSubtitle');
+    if (p.style) p.style.display='none';
+    if (a.style) a.style.display='none';
+    if (d.style) d.style.display='block';
+    if (i.classList) i.classList.remove('show');
+    if (st) st.textContent = 'Access Denied';
     document.title = 'Short Movies - Access Denied';
   }
 
-  // ========= AUTH =========
-  async function enterAdmin() {
+  // ========== AUTH ==========
+  async function enterAdmin(){
     const key = prompt('Masukkan kunci admin:');
     if (!key) return;
-    try {
-      await api('/api/login', { method:'POST', body: JSON.stringify({ key }) });
-      showToast('Login berhasil');
-      await showAdminPanel();
-    } catch(e) {
-      showToast('Kunci salah', 'error');
-      showAccessDenied();
-    }
+    try { await api('/api/login', { method:'POST', body: JSON.stringify({ key }) }); toast('Login berhasil'); await showAdmin(); }
+    catch{ toast('Kunci salah','error'); denied(); }
   }
+  async function logoutAdmin(){ try{ await api('/api/logout',{method:'POST'});}catch{} toast('Logout'); showPublic(); }
 
-  async function logoutAdmin() {
-    try {
-      await api('/api/logout', { method:'POST' });
-    } catch(e) { /* ignore */ }
-    showToast('Logout');
-    showPublicPage();
+  // ========== UPLOAD ==========
+  function handleFileSelect(e){
+    const f = (e.target.files||[])[0];
+    const name = tryEl('selectedFileName'), sub = tryEl('uploadSubtext');
+    if (!f){ if(name.style) name.style.display='none'; if(sub.style) sub.style.display='block'; return; }
+    name.textContent = `${f.name} • ${fmt(f.size)}`;
+    if(name.style) name.style.display='block';
+    if(sub.style) sub.style.display='none';
   }
-
-  async function checkAdminOnLoad() {
-    try {
-      const me = await api('/api/me');
-      const url = new URL(window.location.href);
-      const shouldPrompt = url.searchParams.get('admin') === '1' || url.hash === '#admin';
-      if (me && me.admin) {
-        await showAdminPanel();
-      } else if (shouldPrompt) {
-        await enterAdmin();
-      } else {
-        showPublicPage();
-      }
-    } catch(e) {
-      console.error(e);
-      showPublicPage();
-    }
-  }
-
-  // ========= UPLOAD VIA VERCEL BLOB (CLIENT UPLOAD) =========
-  function handleFileSelect(e) {
-    const f = e.target.files && e.target.files[0];
-    if (!f) {
-      elSelectedFileName.style.display = 'none';
-      elUploadSubtext.style.display = 'block';
-      return;
-    }
-    elSelectedFileName.textContent = `${f.name} • ${formatBytes(f.size)}`;
-    elSelectedFileName.style.display = 'block';
-    elUploadSubtext.style.display = 'none';
-  }
-
-  async function handleSubmit(e) {
+  async function handleSubmit(e){
     e.preventDefault();
-    const file = elVideoFile.files && elVideoFile.files[0];
-    if (!file) return showToast('Silakan pilih file video', 'error');
-    const title = elVideoTitle.value.trim();
-    if (!title) return showToast('Judul wajib diisi', 'error');
+    const file = (tryEl('videoFile').files||[])[0];
+    const title = (tryEl('videoTitle').value||'').trim();
+    if (!file) return toast('Silakan pilih file video','error');
+    if (!title) return toast('Judul wajib diisi','error');
+    if (!blobUpload) return toast('Upload nonaktif: izinkan https://esm.sh di CSP atau koneksi kamu.','error');
 
-    elProgressBar.style.display = 'block';
-    elProgressFill.style.width = '0%';
+    const bar = tryEl('progressBar'), fill = tryEl('progressFill');
+    if (bar.style) bar.style.display='block'; if (fill.style) fill.style.width='0%';
 
     try {
-      const payload = {
-        title,
-        description: elVideoDescription.value.trim(),
-        telegram_link: elVideoLink.value.trim(),
-        size: file.size
-      };
-
       await blobUpload(file.name, file, {
         access: 'public',
         contentType: file.type || 'application/octet-stream',
         handleUploadUrl: '/api/upload',
-        clientPayload: JSON.stringify(payload),
+        clientPayload: JSON.stringify({
+          title,
+          description: (tryEl('videoDescription').value||'').trim(),
+          telegram_link: (tryEl('videoLink').value||'').trim(),
+          size: file.size
+        }),
         onUploadProgress: (pe) => {
-          if (!pe) return;
+          if (!pe || !fill.style) return;
           const pct = Math.round((pe.percentage ?? (pe.loaded/Math.max(pe.total||1,1))*100));
-          elProgressFill.style.width = Math.min(100, Math.max(0, pct)) + '%';
-        },
+          fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+        }
       });
-
-      showToast('Upload berhasil');
-      // reset
-      elVideoFile.value = '';
-      elVideoTitle.value = '';
-      elVideoDescription.value = '';
-      elVideoLink.value = '';
-      elSelectedFileName.style.display = 'none';
-      elUploadSubtext.style.display = 'block';
-      setTimeout(()=>{ elProgressBar.style.display = 'none'; elProgressFill.style.width='0%'; }, 500);
-
-      await loadAdmin();
-      await loadPublic();
-    } catch(e) {
-      console.error(e);
-      showToast(e.message || 'Upload gagal', 'error');
-    }
+      toast('Upload berhasil');
+      tryEl('videoFile').value='';
+      tryEl('videoTitle').value='';
+      tryEl('videoDescription').value='';
+      tryEl('videoLink').value='';
+      const name = tryEl('selectedFileName'), sub = tryEl('uploadSubtext');
+      if(name.style) name.style.display='none'; if(sub.style) sub.style.display='block';
+      setTimeout(()=>{ if(bar.style) bar.style.display='none'; if(fill.style) fill.style.width='0%'; }, 400);
+      await loadAdmin(); await loadPublic();
+    } catch(e){ console.error(e); toast(e.message||'Upload gagal','error'); }
   }
 
-  function previewVideo() {
-    const file = elVideoFile.files && elVideoFile.files[0];
-    if (!file) return showToast('Pilih file dulu', 'error');
-    const url = URL.createObjectURL(file);
-    window.open(url, '_blank');
-  }
-
-  function goToPublic() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('admin');
-    window.history.replaceState({}, document.title, url);
-    showPublicPage();
-  }
-
-  // ========= INIT BINDINGS =========
+  // ========== INIT ==========
   window.handleFileSelect = handleFileSelect;
   window.handleSubmit = handleSubmit;
-  window.previewVideo = previewVideo;
+  window.previewVideo = () => {
+    const f = (tryEl('videoFile').files||[])[0];
+    if (!f) return toast('Pilih file dulu','error');
+    window.open(URL.createObjectURL(f),'_blank');
+  };
   window.logoutAdmin = logoutAdmin;
-  window.goToPublic = goToPublic;
+  window.goToPublic = () => { const u = new URL(location.href); u.searchParams.delete('admin'); history.replaceState({}, document.title, u); showPublic(); };
   window.enterAdmin = enterAdmin;
-  document.addEventListener('DOMContentLoaded', checkAdminOnLoad);
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const me = await api('/api/me').catch(()=>({admin:false}));
+      const url = new URL(location.href);
+      const wantAdmin = url.searchParams.get('admin')==='1' || url.hash==='#admin';
+      if (me.admin) await showAdmin();
+      else if (wantAdmin) await enterAdmin();
+      else showPublic();
+    } catch { showPublic(); }
+  });
 </script>
 </body>
 </html>
