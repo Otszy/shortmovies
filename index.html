@@ -591,8 +591,9 @@
 
             <div class="upload-section" onclick="document.getElementById('videoFile').click()">
                 <div class="upload-icon">📁</div>
-                <div style="color: white; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Upload Video Trailer</div>
-                <div style="color: rgba(255, 255, 255, 0.7); font-size: 14px;">Drag & drop atau klik untuk pilih file</div>
+                <div style="color: white; font-size: 16px; font-weight: 600; margin-bottom: 8px;" id="uploadText">Upload Video Trailer</div>
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 14px;" id="uploadSubtext">Drag & drop atau klik untuk pilih file</div>
+                <div id="selectedFileName" style="color: #4ade80; font-size: 12px; margin-top: 8px; display: none;"></div>
                 <input type="file" id="videoFile" class="file-input" accept="video/*" onchange="handleFileSelect(event)">
                 <div class="progress-bar" id="progressBar">
                     <div class="progress-fill" id="progressFill"></div>
@@ -884,12 +885,35 @@
             const file = event.target.files[0];
             if (file && file.type.startsWith('video/')) {
                 selectedFile = file;
+                
+                // Update UI to show selected file
+                const fileName = document.getElementById('selectedFileName');
+                const uploadText = document.getElementById('uploadText');
+                const uploadSubtext = document.getElementById('uploadSubtext');
+                
+                fileName.textContent = `📁 File dipilih: ${file.name}`;
+                fileName.style.display = 'block';
+                uploadText.textContent = 'File Video Siap!';
+                uploadSubtext.textContent = 'Klik lagi untuk ganti file';
+                
                 showProgressBar();
                 simulateUpload();
                 showToast(`File "${file.name}" dipilih! 📁`, 'success');
             } else {
                 showToast('Pilih file video yang valid! ❌', 'error');
+                resetFileSelection();
             }
+        }
+
+        function resetFileSelection() {
+            selectedFile = null;
+            const fileName = document.getElementById('selectedFileName');
+            const uploadText = document.getElementById('uploadText');
+            const uploadSubtext = document.getElementById('uploadSubtext');
+            
+            fileName.style.display = 'none';
+            uploadText.textContent = 'Upload Video Trailer';
+            uploadSubtext.textContent = 'Drag & drop atau klik untuk pilih file';
         }
 
         function showProgressBar() {
@@ -959,8 +983,11 @@
             document.getElementById('videoLink').value = '';
             document.getElementById('videoFile').value = '';
             selectedFile = null;
+            resetFileSelection();
             
+            // Reload both admin and public views
             loadAdminVideos();
+            loadPublicVideos(); // This was missing!
             updateStats();
             
             showToast('Video berhasil diupload! 🚀', 'success');
