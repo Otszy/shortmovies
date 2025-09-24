@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Movies - Video Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.loaded {
+            opacity: 1;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .logo-text {
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .access-denied {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .denied-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .denied-title {
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .denied-text {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
+            margin-bottom: 24px;
+        }
+
+        .go-home-btn {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .go-home-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .admin-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .admin-indicator.show {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .public-page {
+            display: block;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .video-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            position: relative;
+        }
+
+        .play-button {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .play-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .video-info {
+            padding: 20px;
+        }
+
+        .video-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+
+        .video-description {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 16px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-duration {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .watch-btn {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .watch-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .empty-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 36px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-text {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .empty-subtext {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+
+        .admin-panel {
+            display: none;
+        }
+
+        .admin-nav {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .admin-title {
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-section:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .upload-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 28px;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #4facfe;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .form-textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 25px rgba(255, 255, 255, 0.1);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+
+        .section-title {
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: linear-gradient(45deg, #22c55e, #16a34a);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 24px;
+            }
+            
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .admin-nav {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-indicator" id="adminIndicator">
+        👑 Admin Mode Active
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">🎬</div>
+                <div class="logo-text">Short Movies</div>
+            </div>
+            <div class="subtitle" id="pageSubtitle">Nonton Video Terbaru</div>
+            
+            <!-- Testing button for Claude artifact only -->
+            <div style="margin-top: 10px;">
+                <button class="admin-toggle" onclick="testAdminAccess()" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; padding: 8px 16px; font-size: 12px; cursor: pointer; transition: all 0.3s ease;">
+                    🔑 Test Admin (untuk testing di Claude)
+                </button>
+            </div>
+        </div>
+
+        <!-- Access Denied Page -->
+        <div class="access-denied" id="accessDenied">
+            <div class="denied-icon">🔒</div>
+            <div class="denied-title">Access Denied</div>
+            <div class="denied-text">Anda tidak memiliki akses ke halaman admin.<br>Key yang Anda masukkan salah atau tidak valid.</div>
+            <button class="go-home-btn" onclick="goToPublic()">🏠 Kembali ke Beranda</button>
+        </div>
+
+        <!-- Public Page -->
+        <div class="public-page" id="publicPage">
+            <div class="section-title">
+                🎬 Video Tersedia
+            </div>
+            
+            <div class="video-grid" id="videoGrid">
+                <!-- Videos will be loaded here -->
+            </div>
+
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon">🎭</div>
+                <div class="empty-text">Belum ada video tersedia.</div>
+                <div class="empty-subtext">Tunggu admin upload video terbaru!</div>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="admin-panel" id="adminPanel">
+            <div class="admin-nav">
+                <div class="admin-title">
+                    👑 Admin Dashboard - Short Movies
+                </div>
+                <button class="logout-btn" onclick="logoutAdmin()">
+                    🚪 Logout
+                </button>
+            </div>
+
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalVideos">3</div>
+                    <div class="stat-label">Total Video</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalViews">1,247</div>
+                    <div class="stat-label">Total Views</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="todayUploads">1</div>
+                    <div class="stat-label">Upload Hari Ini</div>
+                </div>
+            </div>
+
+            <div class="section-title">
+                📤 Upload Video Baru
+            </div>
+
+            <div class="upload-section" onclick="document.getElementById('videoFile').click()">
+                <div class="upload-icon">📁</div>
+                <div style="color: white; font-size: 16px; font-weight: 600; margin-bottom: 8px;">Upload Video Trailer</div>
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 14px;">Drag & drop atau klik untuk pilih file</div>
+                <input type="file" id="videoFile" class="file-input" accept="video/*" onchange="handleFileSelect(event)">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <form onsubmit="handleSubmit(event)">
+                <div class="form-group">
+                    <label class="form-label">Judul Video</label>
+                    <input type="text" class="form-input" id="videoTitle" placeholder="Masukkan judul video..." required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Deskripsi Singkat</label>
+                    <textarea class="form-input form-textarea" id="videoDescription" placeholder="Ceritakan tentang video Anda... (opsional)"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Link Nonton Full (Telegram/Bot)</label>
+                    <input type="url" class="form-input" id="videoLink" placeholder="https://t.me/your_bot_link (opsional)">
+                </div>
+
+                <button type="button" class="btn btn-secondary" onclick="previewVideo()">📱 Preview Video</button>
+                <button type="submit" class="btn">🚀 Upload Video</button>
+            </form>
+
+            <div class="section-title" style="margin-top: 40px;">
+                📊 Manage Video Anda
+            </div>
+            
+            <div class="video-grid" id="adminVideoGrid">
+                <!-- Admin video management will be here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const ADMIN_KEY = 'shortmovies2025admin';
+        const ADMIN_URL_PARAM = 'key';
+        
+        let selectedFile = null;
+        let isAdminMode = false;
+        let videoDatabase = [
+            {
+                id: 1,
+                title: "Spider-Man: No Way Home",
+                description: "Film superhero yang menggabungkan multiverse dengan aksi spektakuler",
+                duration: "2:30",
+                thumbnail: "🕷",
+                telegramLink: "https://t.me/example_bot",
+                uploadDate: "2025-01-15"
+            },
+            {
+                id: 2,
+                title: "The Batman",
+                description: "Versi gelap dari kisah Batman dengan Robert Pattinson",
+                duration: "3:45",
+                thumbnail: "🦇",
+                telegramLink: "https://t.me/example_bot2",
+                uploadDate: "2025-01-20"
+            },
+            {
+                id: 3,
+                title: "Avatar: The Way of Water",
+                description: "Sekuel epik dari Avatar dengan teknologi visual terdepan",
+                duration: "4:12",
+                thumbnail: "🌊",
+                telegramLink: "https://t.me/example_bot3",
+                uploadDate: "2025-01-22"
+            }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.add('loaded');
+            checkAdminAccess();
+        });
+
+        // Debug function to check URL params
+        function debugURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const providedKey = urlParams.get(ADMIN_URL_PARAM);
+            console.log('Current URL:', window.location.href);
+            console.log('Key parameter:', providedKey);
+            console.log('Expected key:', ADMIN_KEY);
+            console.log('Keys match:', providedKey === ADMIN_KEY);
+        }
+
+        function testAdminAccess() {
+            // Special function for testing in Claude artifact
+            showAdminPanel();
+        }
+
+        function checkAdminAccess() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const providedKey = urlParams.get(ADMIN_URL_PARAM);
+            
+            // Debug info
+            console.log('Checking admin access...');
+            console.log('URL:', window.location.href);
+            console.log('Key provided:', providedKey);
+            console.log('Expected key:', ADMIN_KEY);
+            
+            if (providedKey === ADMIN_KEY) {
+                console.log('✅ Admin access granted');
+                showAdminPanel();
+            } else if (providedKey && providedKey !== ADMIN_KEY) {
+                console.log('❌ Invalid key provided');
+                showAccessDenied();
+            } else {
+                console.log('ℹ️ No key provided, showing public page');
+                showPublicPage();
+            }
+        }
+
+        function showAccessDenied() {
+            document.getElementById('publicPage').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('accessDenied').style.display = 'block';
+            document.getElementById('adminIndicator').classList.remove('show');
+            document.getElementById('pageSubtitle').textContent = 'Access Denied';
+            
+            document.title = 'Short Movies - Access Denied';
+        }
+
+        function goToPublic() {
+            const url = new URL(window.location);
+            url.searchParams.delete(ADMIN_URL_PARAM);
+            window.history.replaceState({}, document.title, url);
+            
+            showPublicPage();
+        }
+
+        function toggleAdminMode() {
+            const key = prompt('Masukkan kunci admin:');
+            if (key === 'shortmovies2025admin') {
+                showAdminPanel();
+            } else if (key) {
+                showToast('Kunci admin salah! 🔑', 'error');
+            }
+        }
+
+        function showPublicPage() {
+            isAdminMode = false;
+            document.getElementById('publicPage').style.display = 'block';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('adminIndicator').classList.remove('show');
+            document.getElementById('pageSubtitle').textContent = 'Nonton Video Terbaru';
+            
+            loadPublicVideos();
+            document.title = 'Short Movies - Video Platform';
+        }
+
+        function showAdminPanel() {
+            isAdminMode = true;
+            document.getElementById('publicPage').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            document.getElementById('adminIndicator').classList.add('show');
+            document.getElementById('pageSubtitle').textContent = 'Panel Admin - Kelola Video';
+            
+            loadAdminVideos();
+            updateStats();
+            document.title = 'Short Movies - Admin Dashboard';
+            
+            showToast('Welcome Admin! 👑', 'success');
+        }
+
+        function logoutAdmin() {
+            const confirm = window.confirm('Yakin ingin logout dari admin panel?');
+            if (confirm) {
+                goToPublic();
+                showToast('Logout berhasil! 👋', 'success');
+            }
+        }
+
+        function loadPublicVideos() {
+            const videoGrid = document.getElementById('videoGrid');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (videoDatabase.length === 0) {
+                videoGrid.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            videoGrid.innerHTML = videoDatabase.map(video => `
+                <div class="video-card" onclick="watchVideo(${video.id})">
+                    <div class="video-thumbnail">
+                        ${video.thumbnail}
+                        <div class="play-button">▶️</div>
+                    </div>
+                    <div class="video-info">
+                        <div class="video-title">${video.title}</div>
+                        <div class="video-description">${video.description}</div>
+                        <div class="video-meta">
+                            <span class="video-duration">${video.duration}</span>
+                            <button class="watch-btn" onclick="event.stopPropagation(); watchVideo(${video.id})">
+                                🎬 Tonton
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function watchVideo(videoId) {
+            const video = videoDatabase.find(v => v.id === videoId);
+            if (!video) return;
+            
+            if (video.telegramLink) {
+                const confirmWatch = confirm(`Nonton "${video.title}"?\n\nVideo akan dibuka di Telegram/Bot link.`);
+                if (confirmWatch) {
+                    window.open(video.telegramLink, '_blank');
+                }
+            } else {
+                alert(`Nonton "${video.title}"\n\nVideo akan diputar di sini (simulasi)`);
+            }
+        }
+
+        function loadAdminVideos() {
+            if (!isAdminMode) return;
+            
+            const adminGrid = document.getElementById('adminVideoGrid');
+            adminGrid.innerHTML = videoDatabase.map(video => `
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        ${video.thumbnail}
+                        <div class="play-button">📊</div>
+                    </div>
+                    <div class="video-info">
+                        <div class="video-title">${video.title}</div>
+                        <div class="video-description">${video.description}</div>
+                        <div class="video-meta">
+                            <span class="video-duration">Upload: ${video.uploadDate}</span>
+                            <button class="watch-btn" onclick="editVideo(${video.id})" style="background: linear-gradient(45deg, #ff6b6b, #feca57);">
+                                ✏️ Edit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStats() {
+            if (!isAdminMode) return;
+            
+            document.getElementById('totalVideos').textContent = videoDatabase.length;
+            document.getElementById('totalViews').textContent = '1,247';
+            document.getElementById('todayUploads').textContent = '1';
+        }
+
+        function editVideo(videoId) {
+            if (!isAdminMode) return;
+            
+            const video = videoDatabase.find(v => v.id === videoId);
+            if (!video) return;
+            
+            const newTitle = prompt('Edit judul video:', video.title);
+            if (newTitle && newTitle !== video.title) {
+                video.title = newTitle;
+                loadAdminVideos();
+                showToast('Video berhasil diupdate! ✅', 'success');
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('video/')) {
+                selectedFile = file;
+                showProgressBar();
+                simulateUpload();
+                showToast(`File "${file.name}" dipilih! 📁`, 'success');
+            } else {
+                showToast('Pilih file video yang valid! ❌', 'error');
+            }
+        }
+
+        function showProgressBar() {
+            document.getElementById('progressBar').style.display = 'block';
+        }
+
+        function simulateUpload() {
+            const progressFill = document.getElementById('progressFill');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.getElementById('progressBar').style.display = 'none';
+                        progressFill.style.width = '0%';
+                    }, 1000);
+                }
+                progressFill.style.width = progress + '%';
+            }, 200);
+        }
+
+        function previewVideo() {
+            if (!selectedFile) {
+                showToast('Pilih file video terlebih dahulu! 📁', 'error');
+                return;
+            }
+            
+            const title = document.getElementById('videoTitle').value;
+            if (!title) {
+                showToast('Masukkan judul video! ✍️', 'error');
+                return;
+            }
+            
+            showToast(`Preview: "${title}" (${selectedFile.name}) 👀`, 'success');
+        }
+
+        function handleSubmit(event) {
+            event.preventDefault();
+            
+            if (!selectedFile) {
+                showToast('Pilih file video terlebih dahulu! 📁', 'error');
+                return;
+            }
+            
+            const title = document.getElementById('videoTitle').value;
+            const description = document.getElementById('videoDescription').value;
+            const link = document.getElementById('videoLink').value;
+            
+            const newVideo = {
+                id: videoDatabase.length + 1,
+                title: title,
+                description: description || 'Deskripsi tidak tersedia',
+                duration: '2:15',
+                thumbnail: '🎬',
+                telegramLink: link || '#',
+                uploadDate: new Date().toISOString().split('T')[0]
+            };
+            
+            videoDatabase.push(newVideo);
+            
+            // Reset form
+            document.getElementById('videoTitle').value = '';
+            document.getElementById('videoDescription').value = '';
+            document.getElementById('videoLink').value = '';
+            document.getElementById('videoFile').value = '';
+            selectedFile = null;
+            
+            loadAdminVideos();
+            updateStats();
+            
+            showToast('Video berhasil diupload! 🚀', 'success');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
